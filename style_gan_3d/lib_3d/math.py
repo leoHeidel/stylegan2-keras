@@ -1,4 +1,6 @@
-import lib_3d
+import tensorflow as tf
+
+import style_gan_3d
 
 def cross(vector1, vector2):
     """
@@ -43,7 +45,7 @@ def trace_ray(camera_position, camera_direction, camera_rotation, side, side_cou
     #Relative to camera 
     grid_xy = grid_xy + (dist_to_zero[:,tf.newaxis]*camera_direction)[:,tf.newaxis,tf.newaxis,:]
     
-    grid_xyz = grid_xy[:,tf.newaxis,:,:,:] * (1 + linspace/dist_to_zero[:,np.newaxis])[:,:,tf.newaxis,tf.newaxis,tf.newaxis] # (*,side_count,side_count,side_count,3)    
+    grid_xyz = grid_xy[:,tf.newaxis,:,:,:] * (1 + linspace/dist_to_zero[:,tf.newaxis])[:,:,tf.newaxis,tf.newaxis,tf.newaxis] # (*,side_count,side_count,side_count,3)    
     return grid_xyz + camera_position[:,tf.newaxis,tf.newaxis,tf.newaxis,:]
 
 def to_feature_map(feature_3D):

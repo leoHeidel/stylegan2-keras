@@ -1,4 +1,8 @@
-import lib_3d
+import tensorflow as tf
+import tensorflow.keras as keras
+
+import style_gan_3d.lib_3d.math as math
+
 
 
 class CameraStd(keras.layers.Layer):
@@ -65,5 +69,5 @@ class RayTracer(keras.layers.Layer):
 
     def call(self, inputs):
         camera_position, camera_direction, camera_rotation, side = inputs 
-        return trace_ray(camera_position, camera_direction, camera_rotation, side, side_count=self.side_count)
+        return math.trace_ray(camera_position, camera_direction, camera_rotation, side, side_count=self.side_count)
     
