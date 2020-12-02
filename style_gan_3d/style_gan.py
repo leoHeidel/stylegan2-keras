@@ -86,6 +86,7 @@ class StyleGan(keras.Model):
         if seed_type == '3d':
             self.SN = self.make_seed_network_3d()
         else:
+            assert seed_type == "standard"
             self.SN = self.make_seed_network_standard()
         self.S_SN_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.G_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
@@ -99,13 +100,13 @@ class StyleGan(keras.Model):
         if log_steps is not None:
             self.file_writer = tf.summary.create_file_writer(logdir)
     
-    def make_seed_network_standard():
-        start_dim = im_size // (2**(n_layers-1))
-        style_input = inp_style = keras.layers.Input([n_layers, 512])
+    def make_seed_network_standard(self):
+        start_dim = self.im_size // (2**(self.n_layers-1))
+        style_input = inp_style = keras.layers.Input([self.n_layers, 512])
         x = tf.stop_gradient(style_input)[:,0,:1] * 0 + 1
-        x = keras.layers.Dense(start_dim*start_dim*4*cha, activation = 'relu', 
+        x = keras.layers.Dense(start_dim*start_dim*4*self.channels, activation = 'relu', 
                              kernel_initializer = 'random_normal')(x)
-        x = keras.layers.Reshape([start_dim, start_dim, 4*cha])(x)
+        x = keras.layers.Reshape([start_dim, start_dim, 4*self.channels])(x)
         return keras.models.Model(inputs = style_input, outputs = x)
 
     def make_seed_network_3d(self):

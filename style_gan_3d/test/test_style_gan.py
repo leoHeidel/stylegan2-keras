@@ -27,6 +27,18 @@ def test_small_style_gan_fit():
                                                  im_size=im_size, batch_size=im_size,
                                                  latent_size=latent_size)
     model.fit(dataset.take(20))
+        
+def test_standard_seed():
+    im_size = 64
+    batch_size = 3
+    latent_size = 64 
+    
+    model = style_gan_3d.style_gan.StyleGan(seed_type = "standard", im_size=im_size, latent_size=latent_size, channels=8)
+    model.compile(run_eagerly=True)
+    dataset = style_gan_3d.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, 
+                                                 im_size=im_size, batch_size=im_size,
+                                                 latent_size=latent_size)
+    model.fit(dataset.take(20))
     
 def test_save_weights():
     im_size = 64
