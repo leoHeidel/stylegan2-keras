@@ -15,20 +15,17 @@ def gradient_penalty(samples, output, weight):
                               axis=np.arange(1, len(gradients_sqr.shape)))
     return K.mean(gradient_penalty) * weight
 
-def crop_to_fit(x):
-    height = x[1].shape[1]
-    width = x[1].shape[2]
-    return x[0][:, :height, :width, :]
-
 def g_block(x, input_style, input_noise, nb_filters, im_size, upsampling = True):
     input_filters = x.shape[-1]
     if upsampling:
         x = keras.layers.UpSampling2D(interpolation='bilinear')(x)
     
-    rgb_style = keras.layers.Dense(nb_filters, kernel_initializer = keras.initializers.VarianceScaling(200/x.shape[2]))(input_style)
+    current_size = x.shape[2]
+    rgb_style = keras.layers.Dense(nb_filters, kernel_initializer = keras.initializers.VarianceScaling(200/current_size))(input_style)
     style = keras.layers.Dense(input_filters, kernel_initializer = 'he_uniform')(input_style)
     
-    noise_cropped = keras.layers.Lambda(crop_to_fit)([input_noise, x]) ########
+
+    noise_cropped = input_noise[:,:current_size, :current_size] 
     d = keras.layers.Dense(nb_filters, kernel_initializer='zeros')(noise_cropped)
 
     x = style_gan_3d.conv_mod.Conv2DMod(filters=nb_filters, kernel_size = 3, padding = 'same', kernel_initializer = 'he_uniform')([x, style])
@@ -60,15 +57,12 @@ def d_block(inp, fil, p = True):
     return out
 
 def to_rgb(inp, style, im_size):
-    size = inp.shape[2]
-    x = style_gan_3d.conv_mod.Conv2DMod(3, 1, kernel_initializer = keras.initializers.VarianceScaling(200/size), 
+    current_size = inp.shape[2]
+    x = style_gan_3d.conv_mod.Conv2DMod(3, 1, kernel_initializer = keras.initializers.VarianceScaling(200/current_size), 
                               demod = False)([inp, style])
-    
-    def upsample_to_size(x):
-        y = im_size // x.shape[2]
-        x = K.resize_images(x, y, y, "channels_last",interpolation='bilinear')
-        return x
-    return keras.layers.Lambda(upsample_to_size, output_shape=[None, im_size, im_size, None])(x)
+    factor = im_size // current_size
+    x = keras.layers.UpSampling2D(size=(factor, factor), interpolation='bilinear')(x)
+    return x
 
 def get_random_noise(batch_size=8):
     random_noise = tf.random.normal(shape=(batch_size, 8))
@@ -76,7 +70,7 @@ def get_random_noise(batch_size=8):
 
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
-                 channels=32, channels_mult_list=None, log_steps=None):
+                 channels=32, channels_mult_list=None, seed_type="3d", log_steps=None):
         super(StyleGan, self).__init__()
         
         self.n_layers = int(np.log2(im_size) - 1) -1
@@ -89,14 +83,14 @@ class StyleGan(keras.Model):
         self.D = self.make_discriminator()
         self.S = self.make_style_map()
         self.G = self.make_generator()
-        self.SN = self.make_seed_network()
-        
+        if seed_type == '3d':
+            self.SN = self.make_seed_network_3d()
+        else:
+            self.SN = self.make_seed_network_standard()
         self.S_SN_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.G_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.D_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
 
-
-        #Config
         self.steps = steps        
         self.pl_mean = tf.Variable(0, dtype=tf.float32)
         
@@ -105,8 +99,7 @@ class StyleGan(keras.Model):
         if log_steps is not None:
             self.file_writer = tf.summary.create_file_writer(logdir)
     
-    def make_seed_network(self):
-        """
+    def make_seed_network_standard():
         start_dim = im_size // (2**(n_layers-1))
         style_input = inp_style = keras.layers.Input([n_layers, 512])
         x = tf.stop_gradient(style_input)[:,0,:1] * 0 + 1
@@ -114,8 +107,8 @@ class StyleGan(keras.Model):
                              kernel_initializer = 'random_normal')(x)
         x = keras.layers.Reshape([start_dim, start_dim, 4*cha])(x)
         return keras.models.Model(inputs = style_input, outputs = x)
-        """
 
+    def make_seed_network_3d(self):
         start_dim = self.im_size // (2**(self.n_layers-1))
         style_input = keras.layers.Input([self.n_layers, 512])
         
@@ -127,7 +120,7 @@ class StyleGan(keras.Model):
         hiddens = keras.layers.Dense(self.channels*4,activation="relu")(hiddens)
         hiddens = keras.layers.Dense(self.channels*4,activation="relu")(hiddens)
         
-        feature_map = style_gan_3d.lib_3d.math.to_feature_map(hiddens) #+ x
+        feature_map = style_gan_3d.lib_3d.math.to_feature_map(hiddens)
         
         return keras.models.Model(inputs = style_input, outputs = feature_map)
     
@@ -148,13 +141,13 @@ class StyleGan(keras.Model):
 
     def make_style_map(self):
         S = keras.models.Sequential()
-        S.add(keras.layers.Dense(512, input_shape = [self.latent_size]))
+        S.add(keras.layers.Dense(self.latent_size, input_shape = [self.latent_size]))
         S.add(keras.layers.LeakyReLU(0.2))
-        S.add(keras.layers.Dense(512))
+        S.add(keras.layers.Dense(self.latent_size))
         S.add(keras.layers.LeakyReLU(0.2))
-        S.add(keras.layers.Dense(512))
+        S.add(keras.layers.Dense(self.latent_size))
         S.add(keras.layers.LeakyReLU(0.2))
-        S.add(keras.layers.Dense(512))
+        S.add(keras.layers.Dense(self.latent_size))
         S.add(keras.layers.LeakyReLU(0.2))
         return S
     
@@ -162,7 +155,7 @@ class StyleGan(keras.Model):
         start_dim = self.im_size // (2**(self.n_layers-1))
         
         inp_seed = keras.layers.Input([start_dim, start_dim, 4*self.channels])
-        inp_style = keras.layers.Input([self.n_layers, 512])
+        inp_style = keras.layers.Input([self.n_layers, self.latent_size])
         inp_noise = keras.layers.Input([self.im_size, self.im_size, 1])
     
         outs = []
@@ -177,7 +170,7 @@ class StyleGan(keras.Model):
 
     @tf.function
     def tf_train_step(self, images, style1, style2, style2_idx, noise, perform_gp=True, perform_pl=False):
-        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
             w_1 = self.S(style1)
             w_2 = self.S(style2)
@@ -218,8 +211,9 @@ class StyleGan(keras.Model):
                     gen_loss += K.mean(K.square(pl_lengths - self.pl_mean))
 
         #Get gradients for respective areas
-        gradients_of_generator = gen_tape.gradient(gen_loss, self.G.trainable_variables + self.S.trainable_variables + self.SN.trainable_variables)
-        gradients_of_discriminator = disc_tape.gradient(disc_loss, self.D.trainable_variables)
+        gradients_of_generator = grad_tape.gradient(gen_loss, self.G.trainable_variables + self.S.trainable_variables + self.SN.trainable_variables)
+        gradients_of_discriminator = grad_tape.gradient(disc_loss, self.D.trainable_variables)
+        del grad_tape
 
         #Apply gradients
         self.G_opt.apply_gradients(zip(gradients_of_generator, self.G.trainable_variables + self.S.trainable_variables + self.SN.trainable_variables))

@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 
 def latent_z(batch_size, latent_size):
-    # Z 
     return np.random.normal(size=[batch_size, latent_size]).astype('float32')
 
 def noise_image(batch_size, im_size):
