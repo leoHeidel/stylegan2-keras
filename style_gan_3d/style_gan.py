@@ -102,7 +102,7 @@ class StyleGan(keras.Model):
     
     def make_seed_network_standard(self):
         start_dim = self.im_size // (2**(self.n_layers-1))
-        style_input = inp_style = keras.layers.Input([self.n_layers, 512])
+        style_input = inp_style = keras.layers.Input([self.n_layers, self.latent_size])
         x = tf.stop_gradient(style_input)[:,0,:1] * 0 + 1
         x = keras.layers.Dense(start_dim*start_dim*4*self.channels, activation = 'relu', 
                              kernel_initializer = 'random_normal')(x)
@@ -111,7 +111,7 @@ class StyleGan(keras.Model):
 
     def make_seed_network_3d(self):
         start_dim = self.im_size // (2**(self.n_layers-1))
-        style_input = keras.layers.Input([self.n_layers, 512])
+        style_input = keras.layers.Input([self.n_layers, self.latent_size])
         
         r = get_random_noise(batch_size=tf.shape(style_input)[0])
         random_view = style_gan_3d.lib_3d.layers.CameraStd()(r)
