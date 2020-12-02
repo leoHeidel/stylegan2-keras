@@ -1,7 +1,5 @@
 import tensorflow as tf
 
-import style_gan_3d
-
 def cross(vector1, vector2):
     """
     3D cross product between two vectors, potentially batched

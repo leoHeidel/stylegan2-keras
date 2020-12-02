@@ -120,7 +120,7 @@ class StyleGan(keras.Model):
         hiddens = keras.layers.Dense(self.channels*4,activation="relu")(hiddens)
         hiddens = keras.layers.Dense(self.channels*4,activation="relu")(hiddens)
         
-        feature_map = style_gan_3d.lib_3d.math.to_feature_map(hiddens)
+        feature_map = style_gan_3d.lib_3d.math_3d.to_feature_map(hiddens)
         
         return keras.models.Model(inputs = style_input, outputs = feature_map)
     
