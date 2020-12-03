@@ -17,10 +17,18 @@ def gradient_penalty(samples, output, weight):
                               axis=np.arange(1, len(gradients_sqr.shape)))
     return K.mean(gradient_penalty) * weight
 
+
+def apply_EMA(trained_model, ema_model, beta):
+    for trained_layer, ema_layer in zip(trained_model.layers, ema_model.layers):
+        new_weights = []
+        for trained_w, ema_w in zip(trained_layer.get_weights(), ema_layer.get_weights()):
+            new_weights.append(beta*ema_w + (1-beta)*trained_w)
+        ema_layer.set_weights(new_weights)
+
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
                  channels=32, channels_mult_list=None, seed_type="3d",
-                 nb_style_mapper_layer = 5):
+                 nb_style_mapper_layer=5, ema_beta=0.99):
         super(StyleGan, self).__init__()
         
         self.n_layers = int(np.log2(im_size) - 1) -1
@@ -29,7 +37,8 @@ class StyleGan(keras.Model):
         self.channels = channels
         self.channels_mult_list = channels_mult_list or [1,2,4,6,8,16,32,64]
         self.nb_style_mapper_layer = nb_style_mapper_layer
-
+        self.ema_beta = ema_beta
+        self.seed_type = seed_type
         #Models
         self.D = discriminator.make_discriminator(self)
         self.M = generator.make_style_map(self)
@@ -50,6 +59,25 @@ class StyleGan(keras.Model):
         
         logdir = "logs/train_data/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     
+
+    def init_ema(self):
+        self.ema_M = generator.make_style_map(self)
+        self.ema_G = generator.make_generator(self)
+        if self.seed_type == '3d':
+            self.ema_S = seed.make_seed_3d(self)
+        else:
+            assert seed_type == "standard", f"Unrocognized seed_type: {seed_type}"
+            self.ema_S = seed.make_seed_standard(self)
+
+        self.ema_S.set_weights(self.S.get_weights())
+        self.ema_M.set_weights(self.M.get_weights())
+        self.ema_G.set_weights(self.G.get_weights())
+
+    #@tf.function
+    def ema_step(self):
+        apply_EMA(self.S,self.ema_S, self.ema_beta)
+        apply_EMA(self.M,self.ema_M, self.ema_beta)
+        apply_EMA(self.G,self.ema_G, self.ema_beta)
 
     @tf.function
     def tf_train_step(self, images, style1, style2, style2_idx, noise, perform_gp=True, perform_pl=False):
@@ -121,18 +149,7 @@ class StyleGan(keras.Model):
         if self.pl_mean == 0:
             self.pl_mean.assign(tf.reduce_mean(pl_lengths))
         self.pl_mean.assign(0.99*self.pl_mean + 0.01*tf.reduce_mean(pl_lengths))
-        """         
-        if self.log_steps and not self.steps % self.log_steps:
-            with self.file_writer.as_default():
-                noise = noise_image(9)
-                l_z = latent_z(9)
-                l_w = self.S(l_z)
-                style = tf.stack([l_w for i in range(n_layers)],axis=1)
-                seed = self.SN(style)
-                generated = self.G([seed, style, noise])
-                img = tf.concat([tf.concat([generated[3*i+k] for k in range(3)], axis=1) for i in range(3)], axis=0)
-                tf.summary.image("Training data", [img], step=self.steps)
-        """
+
         return {
             "disc_loss":disc_loss,
             "gen_loss":gen_loss,
