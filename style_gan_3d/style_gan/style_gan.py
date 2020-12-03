@@ -27,11 +27,11 @@ def apply_EMA(trained_model, ema_model, beta):
 
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
-                 channels=32, channels_mult_list=None, seed_type="3d",
-                 nb_style_mapper_layer=5, ema_beta=0.99):
+                 channels=32, channels_mult_list=None, seed_type="standard",
+                 nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None):
         super(StyleGan, self).__init__()
         
-        self.n_layers = int(np.log2(im_size) - 1) -1
+        self.n_layers = nb_layer or int(np.log2(im_size) - 1) -1
         self.im_size = im_size
         self.latent_size = latent_size
         self.channels = channels
@@ -66,7 +66,7 @@ class StyleGan(keras.Model):
         if self.seed_type == '3d':
             self.ema_S = seed.make_seed_3d(self)
         else:
-            assert seed_type == "standard", f"Unrocognized seed_type: {seed_type}"
+            assert self.seed_type == "standard", f"Unrocognized seed_type: {self.seed_type}"
             self.ema_S = seed.make_seed_standard(self)
 
         self.ema_S.set_weights(self.S.get_weights())

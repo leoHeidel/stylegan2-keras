@@ -21,14 +21,17 @@ def read_image(im_path, im_size):
 def train_dataset(path, n_layers, batch_size=8, im_size=256, latent_size=512, mixed_prob=0.9):
     def _read_image(im_path):
         return read_image(im_path, im_size)
-        
-    im_dataset = tf.data.Dataset.list_files(path)
-    im_dataset = im_dataset.map(_read_image)
-    im_dataset = im_dataset.repeat()
-    im_dataset = im_dataset.batch(batch_size)
     
     nb_train_image = len(glob.glob(path))
     print("Number of train images found:", nb_train_image)
+
+    im_dataset = tf.data.Dataset.list_files(path)
+    im_dataset = im_dataset.map(_read_image)
+    return train_dataset_with_tf_dataset(im_dataset, n_layers, batch_size, im_size, latent_size, mixed_prob)
+
+def train_dataset_with_tf_dataset(im_dataset, n_layers, batch_size=8, im_size=256, latent_size=512, mixed_prob=0.9):
+    im_dataset = im_dataset.repeat()
+    im_dataset = im_dataset.batch(batch_size)
     
     def gen_latent_z():
         while 1:
