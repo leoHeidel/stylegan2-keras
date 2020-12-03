@@ -73,7 +73,6 @@ class StyleGan(keras.Model):
         self.ema_M.set_weights(self.M.get_weights())
         self.ema_G.set_weights(self.G.get_weights())
 
-    #@tf.function
     def ema_step(self):
         apply_EMA(self.S,self.ema_S, self.ema_beta)
         apply_EMA(self.M,self.ema_M, self.ema_beta)
