@@ -1,6 +1,6 @@
 # stylegan2-keras
 
-Unofficial Tensorflow 2.3 and keras implementation of [StyleGAN2][https://arxiv.org/abs/1912.04958]
+Unofficial Tensorflow 2.3 and keras implementation of [StyleGAN2](https://arxiv.org/abs/1912.04958).
 
 ## Requirements
 
@@ -9,7 +9,7 @@ Unofficial Tensorflow 2.3 and keras implementation of [StyleGAN2][https://arxiv.
 
 ## Example
 
-See the [colab example][https://colab.research.google.com/drive/1mnaWwrPHHmJ3aJ3js51daT0Jtuv9X9LL?usp=sharing]. In this example the algorithm is applied to very small images (32x32) and not train for a long time. In order to get satisfactory results, colab is probably not enough.
+See the [colab example](https://colab.research.google.com/drive/1mnaWwrPHHmJ3aJ3js51daT0Jtuv9X9LL?usp=sharing). In this example the algorithm is applied to very small images (32x32) and not train for a long time. In order to get satisfactory results, colab is probably not enough.
 
 ## Acknowledgement 
 
