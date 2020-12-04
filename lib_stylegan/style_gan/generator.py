@@ -1,12 +1,12 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 
-import style_gan_3d
+import lib_stylegan
 
 
 def to_rgb(inp, style, im_size):
     current_size = inp.shape[2]
-    x = style_gan_3d.style_gan.conv_mod.Conv2DMod(3, 1, kernel_initializer = keras.initializers.VarianceScaling(200/current_size), 
+    x = lib_stylegan.style_gan.conv_mod.Conv2DMod(3, 1, kernel_initializer = keras.initializers.VarianceScaling(200/current_size), 
                               demod = False)([inp, style])
     factor = im_size // current_size
     x = keras.layers.UpSampling2D(size=(factor, factor), interpolation='bilinear')(x)
@@ -25,14 +25,14 @@ def g_block(x, input_style, input_noise, nb_filters, im_size, upsampling = True)
     noise_cropped = input_noise[:,:current_size, :current_size] 
     d = keras.layers.Dense(nb_filters, kernel_initializer='zeros')(noise_cropped)
 
-    x = style_gan_3d.style_gan.conv_mod.Conv2DMod(filters=nb_filters, kernel_size = 3, padding = 'same', kernel_initializer = 'he_uniform')([x, style])
+    x = lib_stylegan.style_gan.conv_mod.Conv2DMod(filters=nb_filters, kernel_size = 3, padding = 'same', kernel_initializer = 'he_uniform')([x, style])
     x = keras.layers.add([x, d])
     x = keras.layers.LeakyReLU(0.2)(x)
 
     style = keras.layers.Dense(nb_filters, kernel_initializer = 'he_uniform')(input_style)
     d = keras.layers.Dense(nb_filters, kernel_initializer = 'zeros')(noise_cropped)
 
-    x = style_gan_3d.style_gan.conv_mod.Conv2DMod(filters = nb_filters, kernel_size = 3, padding = 'same', kernel_initializer = 'he_uniform')([x, style])
+    x = lib_stylegan.style_gan.conv_mod.Conv2DMod(filters = nb_filters, kernel_size = 3, padding = 'same', kernel_initializer = 'he_uniform')([x, style])
     x = keras.layers.add([x, d])
     x = keras.layers.LeakyReLU(0.2)(x)
 

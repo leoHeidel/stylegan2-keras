@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 
-import style_gan_3d
+import lib_stylegan
 
 
 def d_block(inp, fil, p = True):

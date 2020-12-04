@@ -5,7 +5,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 
-import style_gan_3d
+import lib_stylegan
 from . import generator
 from . import discriminator
 from . import seed

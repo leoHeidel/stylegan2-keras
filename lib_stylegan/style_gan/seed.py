@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 
-import style_gan_3d
+import lib_stylegan
 
 
 def get_random_noise(batch_size=8):
@@ -23,13 +23,13 @@ def make_seed_3d(model):
     style_input = keras.layers.Input([model.n_layers, model.latent_size])
     
     r = get_random_noise(batch_size=tf.shape(style_input)[0])
-    random_view = style_gan_3d.lib_3d.layers.CameraStd()(r)
-    rays = style_gan_3d.lib_3d.layers.RayTracer()(random_view)
+    random_view = lib_stylegan.lib_3d.layers.CameraStd()(r)
+    rays = lib_stylegan.lib_3d.layers.RayTracer()(random_view)
 
     hiddens = keras.layers.Dense(model.channels*4,activation="relu")(rays)
     hiddens = keras.layers.Dense(model.channels*4,activation="relu")(hiddens)
     hiddens = keras.layers.Dense(model.channels*4,activation="relu")(hiddens)
     
-    feature_map = style_gan_3d.lib_3d.math_3d.to_feature_map(hiddens)
+    feature_map = lib_stylegan.lib_3d.math_3d.to_feature_map(hiddens)
     
     return keras.models.Model(inputs = style_input, outputs = feature_map)
