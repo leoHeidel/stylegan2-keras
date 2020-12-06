@@ -73,7 +73,7 @@ class StyleGan(keras.Model):
         apply_EMA(self.M,self.ema_M, self.ema_beta)
         apply_EMA(self.G,self.ema_G, self.ema_beta)
 
-    @tf.function
+    #@tf.function
     def tf_train_step(self, images, style1, style2, style2_idx, noise, perform_gp=True, perform_pl=False):
         with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
