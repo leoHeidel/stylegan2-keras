@@ -127,8 +127,8 @@ class StyleGan(keras.Model):
                     diff = pl_lengths - self.pl_mean
                     gen_loss += diff*diff
 
-            gen_loss = tf.nn.compute_average_loss(gen_loss)
-            disc_loss = tf.nn.compute_average_loss(disc_loss)
+            gen_loss = tf.nn.compute_average_loss(gen_loss, global_batch_size=self.global_batch_size)
+            disc_loss = tf.nn.compute_average_loss(disc_loss, global_batch_size=self.global_batch_size)
             
         #Get gradients for respective areas
         grad_S, grad_M, grad_G = grad_tape.gradient(gen_loss, (self.S.trainable_variables, self.M.trainable_variables, self.G.trainable_variables))
