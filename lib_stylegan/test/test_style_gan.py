@@ -14,7 +14,7 @@ def test_dataset():
     
 def test_style_gan_compiling():
     model = lib_stylegan.style_gan.StyleGan()
-    model.compile(run_eagerly=True)
+    model.compile()
 
 
 def get_small_params():
@@ -36,7 +36,7 @@ def test_small_style_gan_fit():
     model_param, dataset_param = get_small_params()
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
-    model.compile(run_eagerly=True)
+    model.compile()
     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
     model.fit(dataset.take(20))
         
@@ -44,7 +44,7 @@ def test_3d_seed():
     model_param, dataset_param = get_small_params()
     
     model = lib_stylegan.style_gan.StyleGan(seed_type = "3d", **model_param)
-    model.compile(run_eagerly=True)
+    model.compile()
     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
     model.fit(dataset.take(20))
     
@@ -52,7 +52,7 @@ def test_save_weights():
     model_param, dataset_param = get_small_params()
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
-    model.compile(run_eagerly=True)
+    model.compile()
     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
     model.fit(dataset.take(1))
 
@@ -66,7 +66,7 @@ def test_ema():
     model_param, dataset_param = get_small_params()
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
-    model.compile(run_eagerly=True)
+    model.compile()
     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
     model.fit(dataset.take(1))
 

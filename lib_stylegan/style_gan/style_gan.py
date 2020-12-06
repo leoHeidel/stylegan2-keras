@@ -49,7 +49,7 @@ class StyleGan(keras.Model):
         self.G_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.D_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
 
-        self.steps = steps       
+        self.steps = tf.Variable(steps, dtype=tf.int32)       
         self.pl_mean = tf.Variable(0, dtype=tf.float32)
         
         logdir = "logs/train_data/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -80,14 +80,14 @@ class StyleGan(keras.Model):
             w_1 = self.M(style1)
             w_2 = self.M(style2)
             w_space = tf.repeat(tf.stack([w_1,w_2], axis=1),[style2_idx, self.n_layers-style2_idx],axis=1)
-            pl_lengths = self.pl_mean
+            pl_lengths = self.pl_mean * tf.ones(tf.shape(images)[0])
 
             #Generate images
             seed = self.S(w_space)
             generated_images = self.G([seed, w_space, noise])
 
             
-            disc_loss = 0
+            disc_loss = 0.
 
             #Discriminate, with gradient penalty 
             if perform_gp:
@@ -97,7 +97,7 @@ class StyleGan(keras.Model):
                 gradients = penalty_tape.gradient(real_output, images)
                 gradients2 = gradients*gradients
                 gradient_penalty = tf.reduce_sum(gradients2, axis=np.arange(1, len(gradients2.shape)))
-                disc_loss = disc_loss + 10*gradient_penalty
+                disc_loss = disc_loss + 10.*gradient_penalty
                 
             else : 
                 real_output = self.D(images, training=True)
@@ -143,11 +143,12 @@ class StyleGan(keras.Model):
 
         return disc_loss, gen_loss, divergence, pl_lengths
     
+    @tf.function 
     def train_step(self, args):
         images, style1, style2, style2_idx, noise = args
-        self.steps += 1
+        self.steps.assign(self.steps + 1)
         
-        apply_gradient_penalty = self.steps % 2 == 0 or self.steps < 10000
+        apply_gradient_penalty = self.steps % 2 == 0 or self.steps < 5000
         apply_path_penalty = self.steps % 16 == 0
         
         disc_loss, gen_loss, divergence, pl_lengths = self.tf_train_step(images, style1, style2, 
