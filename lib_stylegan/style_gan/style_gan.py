@@ -31,7 +31,7 @@ class StyleGan(keras.Model):
                  nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None):
         super(StyleGan, self).__init__()
         
-        if n_layers is None:
+        if nb_layer is None:
             if seed_type == "standard":
                 #Start with 4*4
                 self.n_layers =int(np.log2(im_size) - 1)
