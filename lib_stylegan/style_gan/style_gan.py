@@ -22,7 +22,7 @@ def apply_EMA(trained_model, ema_model, beta):
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
                  channels=32, channels_mult_list=None, seed_type="standard",
-                 nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None):
+                 nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None, global_batch_size=None):
         super(StyleGan, self).__init__()
         
         self.n_layers = nb_layer or int(np.log2(im_size) - 1) -1
@@ -33,6 +33,7 @@ class StyleGan(keras.Model):
         self.nb_style_mapper_layer = nb_style_mapper_layer
         self.ema_beta = ema_beta
         self.seed_type = seed_type
+        self.global_batch_size = global_batch_size
         #Models
         self.D = discriminator.make_discriminator(self)
         self.M = generator.make_style_map(self)
