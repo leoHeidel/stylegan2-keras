@@ -10,13 +10,6 @@ from . import generator
 from . import discriminator
 from . import seed
 
-def gradient_penalty(samples, output, weight):
-    gradients = K.gradients(output, samples)[0]
-    gradients_sqr = K.square(gradients)
-    gradient_penalty = K.sum(gradients_sqr,
-                              axis=np.arange(1, len(gradients_sqr.shape)))
-    return K.mean(gradient_penalty) * weight
-
 
 def apply_EMA(trained_model, ema_model, beta):
     for trained_layer, ema_layer in zip(trained_model.layers, ema_model.layers):
@@ -24,6 +17,7 @@ def apply_EMA(trained_model, ema_model, beta):
         for trained_w, ema_w in zip(trained_layer.get_weights(), ema_layer.get_weights()):
             new_weights.append(beta*ema_w + (1-beta)*trained_w)
         ema_layer.set_weights(new_weights)
+
 
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
@@ -54,7 +48,7 @@ class StyleGan(keras.Model):
         self.G_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.D_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
 
-        self.steps = steps        
+        self.steps = steps       
         self.pl_mean = tf.Variable(0, dtype=tf.float32)
         
         logdir = "logs/train_data/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -91,18 +85,28 @@ class StyleGan(keras.Model):
             seed = self.S(w_space)
             generated_images = self.G([seed, w_space, noise])
 
-            #Discriminate
-            real_output = self.D(images, training=True)
-            fake_output = self.D(generated_images, training=True)
+            
+            disc_loss = 0
 
-            #Hinge loss function
-            gen_loss = K.mean(fake_output)
-            divergence = K.mean(K.relu(1 + real_output) + K.relu(1 - fake_output))
-            disc_loss = divergence
-
+            #Discriminate, with gradient penalty 
             if perform_gp:
-                #R1 gradient penalty
-                disc_loss += gradient_penalty(images, real_output, 10)
+                with tf.GradientTape() as penalty_tape:
+                    penalty_tape.watch(images)
+                    real_output = self.D(images, training=True)
+                gradients = penalty_tape.gradient(real_output, images)
+                gradients2 = gradients*gradients
+                gradient_penalty = tf.reduce_sum(gradients2, axis=np.arange(1, len(gradients2.shape)))
+                disc_loss += 10*gradient_penalty
+                
+            else : 
+                real_output = self.D(images, training=True)
+
+            fake_output = self.D(generated_images, training=True)
+    
+            #Hinge loss function
+            gen_loss = fake_output
+            divergence = K.relu(1 + real_output) + K.relu(1 - fake_output)
+            disc_loss += divergence
 
             if perform_pl:
                 #Slightly adjust W space
@@ -116,10 +120,15 @@ class StyleGan(keras.Model):
                 pl_images = self.G([seed, w_space_2,noise], training=True)
 
                 #Get distance after adjustment (path length)
-                pl_lengths = K.mean(K.square(pl_images - generated_images), axis = [1, 2, 3])
+                diff = pl_images - generated_images
+                pl_lengths = tf.reduce_mean(diff*diff, axis = [1, 2, 3])
                 if self.pl_mean > 0 :
-                    gen_loss += K.mean(K.square(pl_lengths - self.pl_mean))
+                    diff = pl_lengths - self.pl_mean
+                    gen_loss += diff*diff
 
+            gen_loss = tf.nn.compute_average_loss(gen_loss)
+            disc_loss = tf.nn.compute_average_loss(disc_loss)
+            
         #Get gradients for respective areas
         grad_S, grad_M, grad_G = grad_tape.gradient(gen_loss, (self.S.trainable_variables, self.M.trainable_variables, self.G.trainable_variables))
         grad_D = grad_tape.gradient(disc_loss, self.D.trainable_variables)

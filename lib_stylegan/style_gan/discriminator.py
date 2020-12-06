@@ -32,5 +32,5 @@ def make_discriminator(model):
     x = d_block(x, model.channels_mult_list[nb_D_layer-1] * model.channels, p = False)
     
     x = keras.layers.Flatten()(x)
-    x = keras.layers.Dense(1, kernel_initializer = 'he_uniform')(x)
+    x = keras.layers.Dense(1, kernel_initializer = 'he_uniform')(x)[:,0]
     return keras.models.Model(inputs = d_input, outputs = x) 
