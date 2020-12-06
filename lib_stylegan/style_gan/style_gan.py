@@ -96,7 +96,7 @@ class StyleGan(keras.Model):
                 gradients = penalty_tape.gradient(real_output, images)
                 gradients2 = gradients*gradients
                 gradient_penalty = tf.reduce_sum(gradients2, axis=np.arange(1, len(gradients2.shape)))
-                disc_loss += 10*gradient_penalty
+                disc_loss = disc_loss + 10*gradient_penalty
                 
             else : 
                 real_output = self.D(images, training=True)
@@ -106,7 +106,7 @@ class StyleGan(keras.Model):
             #Hinge loss function
             gen_loss = fake_output
             divergence = K.relu(1 + real_output) + K.relu(1 - fake_output)
-            disc_loss += divergence
+            disc_loss = disc_loss + divergence
 
             if perform_pl:
                 #Slightly adjust W space
