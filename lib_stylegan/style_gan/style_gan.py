@@ -148,7 +148,7 @@ class StyleGan(keras.Model):
         images, style1, style2, style2_idx, noise = args
         self.steps.assign(self.steps + 1)
         
-        apply_gradient_penalty = self.steps % 2 == 0 or self.steps < 5000
+        apply_gradient_penalty = self.steps % 2 == 0 or self.steps < 1000
         apply_path_penalty = self.steps % 16 == 0
         
         disc_loss, gen_loss, divergence, pl_lengths = self.tf_train_step(images, style1, style2, 
