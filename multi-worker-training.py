@@ -1,7 +1,6 @@
 import json
 import os
 import tqdm
-print(os.environ['TF_CONFIG'])
 
 import numpy as np
 import tensorflow as tf
@@ -51,7 +50,14 @@ dataset = lib_stylegan.dataset.train_dataset(path,
                                              batch_size=per_worker_batch_size,
                                              latent_size=latent_size
                                             )
-for args in tqdm.tqdm(dataset.take(100), total=100):
+
+
+
+for args in dataset.take(1):
     per_replica_losses = strategy.run(model.train_step, args=(args,))
-for args in tqdm.tqdm(dataset.take(1), total=1):
-    per_replica_losses = strategy.run(model.train_step, args=(args,))
+    
+for i in range(200):    
+    steps_per_epoch = 150000//global_batch_size
+
+    for args in tqdm.tqdm(dataset.take(steps_per_epoch), total=steps_per_epoch):
+        per_replica_losses = strategy.run(model.train_step, args=(args,))
