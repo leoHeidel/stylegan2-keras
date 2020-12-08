@@ -153,7 +153,7 @@ class StyleGan(keras.Model):
         self.G_opt.apply_gradients(zip(grad_G, self.G.trainable_variables))
         self.D_opt.apply_gradients(zip(grad_D, self.D.trainable_variables))
 
-        return disc_loss, gen_loss, divergence, tf.reduce_mean(pl_lengths)
+        return disc_loss, gen_loss, tf.reduce_mean(divergence), tf.reduce_mean(pl_lengths)
     
     @tf.function 
     def train_step(self, images):
