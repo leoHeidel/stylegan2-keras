@@ -153,7 +153,12 @@ class StyleGan(keras.Model):
         self.G_opt.apply_gradients(zip(grad_G, self.G.trainable_variables))
         self.D_opt.apply_gradients(zip(grad_D, self.D.trainable_variables))
 
-        return disc_loss, gen_loss, tf.reduce_mean(divergence), tf.reduce_mean(pl_lengths)
+        return {
+            "disc_loss":disc_loss,
+            "gen_loss":gen_loss,
+            "divergence":tf.reduce_mean(divergence),
+            "pl_lengths":tf.reduce_mean(pl_lengths),
+        }
     
     @tf.function 
     def train_step(self, images):
@@ -162,22 +167,13 @@ class StyleGan(keras.Model):
         apply_gradient_penalty = ((self.steps % 2) == 0) | (self.steps < 1000)
         apply_path_penalty = self.steps % 16 == 0
         
-        print(apply_gradient_penalty)
-        print(apply_path_penalty)
-        disc_loss, gen_loss, divergence, pl_lengths = self.tf_train_step(images, 
-                                                                         apply_gradient_penalty, 
-                                                                         apply_path_penalty)
-        
+        losses = self.tf_train_step(images, apply_gradient_penalty, apply_path_penalty)
+        pl_lengths = losses["pl_lengths"]
         if self.pl_mean == 0:
             self.pl_mean.assign(pl_lengths)
         self.pl_mean.assign(0.99*self.pl_mean + 0.01*pl_lengths)
 
-        return {
-            "disc_loss":disc_loss,
-            "gen_loss":gen_loss,
-            "divergence":divergence,
-            "pl_lengths":pl_lengths,
-        }
+        return losses
 
     def get_noise(self, x):
         '''

@@ -19,7 +19,7 @@ def train_dataset(path, batch_size=8, im_size=256):
     print("Number of train images found:", nb_train_image)
 
     im_dataset = tf.data.Dataset.list_files(path)
-    im_dataset = im_dataset.map(_read_image)
+    im_dataset = im_dataset.map(_read_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     return train_dataset_with_tf_dataset(im_dataset, batch_size)
 
 def train_dataset_with_tf_dataset(im_dataset, batch_size=8):
