@@ -8,7 +8,7 @@ import lib_stylegan
 test_datset_path = "lib_stylegan/test/test_dataset/*.jpg"
 
 def test_dataset():
-    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=6, im_size=128, batch_size=8)
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, im_size=128, batch_size=8)
     for args in dataset.take(1):
         pass
     
@@ -27,7 +27,6 @@ def get_small_params():
     dataset_param = {
         "batch_size" : 3,
         "im_size" : model_param["im_size"],
-        "latent_size" : model_param["latent_size"],
     }
 
     return model_param, dataset_param
@@ -37,23 +36,31 @@ def test_small_style_gan_fit():
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
     model.compile(run_eagerly=True)
-    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
+    model.fit(dataset.take(20))
+        
+def test_small_style_gan_fit_eager():
+    model_param, dataset_param = get_small_params()
+
+    model = lib_stylegan.style_gan.StyleGan(**model_param)
+    model.compile(run_eagerly=True)
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
     model.fit(dataset.take(20))
         
 def test_3d_seed():
     model_param, dataset_param = get_small_params()
     
     model = lib_stylegan.style_gan.StyleGan(seed_type = "3d", **model_param)
-    model.compile(run_eagerly=True)
-    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
+    model.compile()
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
     model.fit(dataset.take(20))
     
 def test_save_weights():
     model_param, dataset_param = get_small_params()
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
-    model.compile(run_eagerly=True)
-    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
+    model.compile()
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
     model.fit(dataset.take(1))
 
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -66,8 +73,8 @@ def test_ema():
     model_param, dataset_param = get_small_params()
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
-    model.compile(run_eagerly=True)
-    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, n_layers=model.n_layers, **dataset_param)
+    model.compile()
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
     model.fit(dataset.take(1))
 
     model.init_ema()

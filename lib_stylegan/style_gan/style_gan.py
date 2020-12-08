@@ -11,6 +11,7 @@ from . import discriminator
 from . import seed
 
 
+
 def apply_EMA(trained_model, ema_model, beta):
     for trained_layer, ema_layer in zip(trained_model.layers, ema_model.layers):
         new_weights = []
@@ -22,7 +23,8 @@ def apply_EMA(trained_model, ema_model, beta):
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
                  channels=32, channels_mult_list=None, seed_type="standard",
-                 nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None, global_batch_size=None):
+                 nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None, 
+                 global_batch_size=None, mixed_proba=0.9, random_generator=None):
         super(StyleGan, self).__init__()
         
         if nb_layer is None:
@@ -34,6 +36,7 @@ class StyleGan(keras.Model):
                 self.n_layers =int(np.log2(im_size) - 1) -1
         else :
             self.n_layers = nb_layer 
+        self.mixed_proba = mixed_proba
         self.im_size = im_size
         self.latent_size = latent_size
         self.channels = channels
@@ -42,6 +45,7 @@ class StyleGan(keras.Model):
         self.ema_beta = ema_beta
         self.seed_type = seed_type
         self.global_batch_size = global_batch_size
+        self.random_generator = random_generator or tf.random.Generator.from_non_deterministic_state()
         #Models
         self.D = discriminator.make_discriminator(self)
         self.M = generator.make_style_map(self)
@@ -82,21 +86,20 @@ class StyleGan(keras.Model):
         apply_EMA(self.G,self.ema_G, self.ema_beta)
 
     #@tf.function
-    def tf_train_step(self, images, style1, style2, style2_idx, noise, perform_gp=True, perform_pl=False):
+    def tf_train_step(self, images, perform_gp=True, perform_pl=False):
+        style1, style2, style2_idx, noise = self.get_noise(images)
         with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
             w_1 = self.M(style1)
             w_2 = self.M(style2)
-            w_space = tf.repeat(tf.stack([w_1,w_2], axis=1),[style2_idx, self.n_layers-style2_idx],axis=1)
-            pl_lengths = self.pl_mean * tf.ones(tf.shape(images)[0])
-
+            stacked = tf.stack([w_1,w_2], axis=1)
+            w_space = tf.repeat(stacked,[style2_idx, self.n_layers-style2_idx],axis=1)
             #Generate images
             seed = self.S(w_space)
             generated_images = self.G([seed, w_space, noise])
-
             
             disc_loss = 0.
-
+            
             #Discriminate, with gradient penalty 
             if perform_gp:
                 with tf.GradientTape() as penalty_tape:
@@ -117,6 +120,7 @@ class StyleGan(keras.Model):
             divergence = K.relu(1 + real_output) + K.relu(1 - fake_output)
             disc_loss = disc_loss + divergence
 
+            pl_lengths = self.pl_mean * tf.ones(tf.shape(images)[0])
             if perform_pl:
                 #Slightly adjust W space
                 w_space_2 = []
@@ -149,24 +153,22 @@ class StyleGan(keras.Model):
         self.G_opt.apply_gradients(zip(grad_G, self.G.trainable_variables))
         self.D_opt.apply_gradients(zip(grad_D, self.D.trainable_variables))
 
-        return disc_loss, gen_loss, divergence, pl_lengths
+        return disc_loss, gen_loss, tf.reduce_mean(divergence), tf.reduce_mean(pl_lengths)
     
     @tf.function 
-    def train_step(self, args):
-        images, style1, style2, style2_idx, noise = args
+    def train_step(self, images):
         self.steps.assign(self.steps + 1)
         
         apply_gradient_penalty = self.steps % 2 == 0 or self.steps < 1000
         apply_path_penalty = self.steps % 16 == 0
         
-        disc_loss, gen_loss, divergence, pl_lengths = self.tf_train_step(images, style1, style2, 
-                                                                         style2_idx, noise, 
+        disc_loss, gen_loss, divergence, pl_lengths = self.tf_train_step(images, 
                                                                          apply_gradient_penalty, 
                                                                          apply_path_penalty)
         
         if self.pl_mean == 0:
-            self.pl_mean.assign(tf.reduce_mean(pl_lengths))
-        self.pl_mean.assign(0.99*self.pl_mean + 0.01*tf.reduce_mean(pl_lengths))
+            self.pl_mean.assign(pl_lengths)
+        self.pl_mean.assign(0.99*self.pl_mean + 0.01*pl_lengths)
 
         return {
             "disc_loss":disc_loss,
@@ -174,3 +176,22 @@ class StyleGan(keras.Model):
             "divergence":divergence,
             "pl_lengths":pl_lengths,
         }
+
+    def get_noise(self, x):
+        '''
+        Make a network that will generate the random noised needed for style gan training.
+        an input x is needed to give an indication of the batch size.
+        generator should be specified if within distributed strategy.
+        '''
+        batch_size = tf.shape(x)[0]
+        noise = [] 
+        z_1 = self.random_generator.normal((batch_size, self.latent_size))
+        z_2 = self.random_generator.normal((batch_size, self.latent_size))
+        only_z2 = tf.cast(self.random_generator.uniform(()) > self.mixed_proba, dtype=tf.int32) # = 0 with proba mixed_prob
+        idx = self.random_generator.uniform((), maxval=self.n_layers, dtype=tf.int32) * only_z2
+
+        for i in range(self.n_layers):
+            noise_size = self.im_size // (2**(self.n_layers-i-1))
+            noise.append(self.random_generator.uniform((batch_size,noise_size,noise_size,1)))
+
+        return z_1, z_2, idx, noise
