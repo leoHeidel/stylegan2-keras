@@ -24,5 +24,5 @@ def train_dataset(path, batch_size=8, im_size=256):
 
 def train_dataset_with_tf_dataset(im_dataset, batch_size=8):
     im_dataset = im_dataset.batch(batch_size)
-    im_dataset = im_dataset.prefetch(1)
+    im_dataset = im_dataset.prefetch(tf.data.experimental.AUTOTUNE)
     return im_dataset
