@@ -153,7 +153,7 @@ class StyleGan(keras.Model):
         self.G_opt.apply_gradients(zip(grad_G, self.G.trainable_variables))
         self.D_opt.apply_gradients(zip(grad_D, self.D.trainable_variables))
 
-        return disc_loss, gen_loss, divergence, pl_lengths
+        return disc_loss, gen_loss, divergence, tf.reduce_mean(pl_lengths)
     
     @tf.function 
     def train_step(self, images):
@@ -167,8 +167,8 @@ class StyleGan(keras.Model):
                                                                          apply_path_penalty)
         
         if self.pl_mean == 0:
-            self.pl_mean.assign(tf.reduce_mean(pl_lengths))
-        self.pl_mean.assign(0.99*self.pl_mean + 0.01*tf.reduce_mean(pl_lengths))
+            self.pl_mean.assign(pl_lengths)
+        self.pl_mean.assign(0.99*self.pl_mean + 0.01*pl_lengths)
 
         return {
             "disc_loss":disc_loss,
