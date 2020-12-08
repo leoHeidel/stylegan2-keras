@@ -87,9 +87,7 @@ class StyleGan(keras.Model):
 
     #@tf.function
     def tf_train_step(self, images, perform_gp=True, perform_pl=False):
-        style1, style2, style2_idx, noise = self.get_noise(images, 
-                                                           self.random_generator, 
-                                                           self.mixed_proba)
+        style1, style2, style2_idx, noise = self.get_noise(images)
         with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
             w_1 = self.M(style1)
@@ -179,7 +177,7 @@ class StyleGan(keras.Model):
             "pl_lengths":pl_lengths,
         }
 
-    def get_noise(self, x, generator, mixed_prob=0.9):
+    def get_noise(self, x):
         '''
         Make a network that will generate the random noised needed for style gan training.
         an input x is needed to give an indication of the batch size.
@@ -187,13 +185,13 @@ class StyleGan(keras.Model):
         '''
         batch_size = tf.shape(x)[0]
         noise = [] 
-        z_1 = generator.normal((batch_size, self.latent_size))
-        z_2 = generator.normal((batch_size, self.latent_size))
-        only_z2 = tf.cast(generator.uniform(()) > mixed_prob, dtype=tf.int32) # = 0 with proba mixed_prob
-        idx = generator.uniform((), maxval=self.n_layers, dtype=tf.int32) * only_z2
+        z_1 = self.random_generator.normal((batch_size, self.latent_size))
+        z_2 = self.random_generator.normal((batch_size, self.latent_size))
+        only_z2 = tf.cast(self.random_generator.uniform(()) > self.mixed_proba, dtype=tf.int32) # = 0 with proba mixed_prob
+        idx = self.random_generator.uniform((), maxval=self.n_layers, dtype=tf.int32) * only_z2
 
         for i in range(self.n_layers):
             noise_size = self.im_size // (2**(self.n_layers-i-1))
-            noise.append(generator.uniform((batch_size,noise_size,noise_size,1)))
+            noise.append(self.random_generator.uniform((batch_size,noise_size,noise_size,1)))
 
         return z_1, z_2, idx, noise
