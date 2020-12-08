@@ -35,7 +35,7 @@ def test_small_style_gan_fit():
     model_param, dataset_param = get_small_params()
 
     model = lib_stylegan.style_gan.StyleGan(**model_param)
-    model.compile(run_eagerly=True)
+    model.compile()
     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
     model.fit(dataset.take(20))
         

@@ -86,7 +86,7 @@ class StyleGan(keras.Model):
         apply_EMA(self.G,self.ema_G, self.ema_beta)
 
     #@tf.function
-    def tf_train_step(self, images, perform_gp=True, perform_pl=False):
+    def tf_train_step(self, images, perform_gp, perform_pl):
         style1, style2, style2_idx, noise = self.get_noise(images)
         with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
@@ -159,9 +159,11 @@ class StyleGan(keras.Model):
     def train_step(self, images):
         self.steps.assign(self.steps + 1)
         
-        apply_gradient_penalty = self.steps % 2 == 0 or self.steps < 1000
+        apply_gradient_penalty = ((self.steps % 2) == 0) | (self.steps < 1000)
         apply_path_penalty = self.steps % 16 == 0
         
+        print(apply_gradient_penalty)
+        print(apply_path_penalty)
         disc_loss, gen_loss, divergence, pl_lengths = self.tf_train_step(images, 
                                                                          apply_gradient_penalty, 
                                                                          apply_path_penalty)
