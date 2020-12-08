@@ -20,14 +20,14 @@ tf_config = json.loads(os.environ['TF_CONFIG'])
 num_workers = len(tf_config['cluster']['worker'])
 
 im_size = 128
-latent_size = 256 
-channels = 24 # Should be at least 32 for good results
+latent_size = 512 
+channels = 32 # Should be at least 32 for good results
 #Chosing the number of layer this way, means we start with 4x4
 nb_layer = int(np.log2(im_size) - 1) 
 
 path="/Data/leo/dogs-face-2015/*jpg"
 
-per_worker_batch_size = 16
+per_worker_batch_size = 12
 global_batch_size = per_worker_batch_size * num_workers
 
 
@@ -41,14 +41,16 @@ with strategy.scope():
                                             latent_size=latent_size, 
                                             channels=channels,
                                             nb_layer=nb_layer,
-                                            global_batch_size=global_batch_size)
+                                            global_batch_size=global_batch_size,
+                                            lr = 0.0001)
     model.compile(run_eagerly=True)
 
 dataset = lib_stylegan.dataset.train_dataset(path, 
                                              n_layers=nb_layer, 
                                              im_size=im_size, 
                                              batch_size=per_worker_batch_size,
-                                             latent_size=latent_size
+                                             latent_size=latent_size,
+                                             random_seed=int(tf_config["task"]["index"])
                                             )
 
 
@@ -56,8 +58,14 @@ dataset = lib_stylegan.dataset.train_dataset(path,
 for args in dataset.take(1):
     per_replica_losses = strategy.run(model.train_step, args=(args,))
     
-for i in range(200):    
-    steps_per_epoch = 150000//global_batch_size
+    
+print(model.steps)
+print(args[-1].numpy())
+    
+    
+for i in range(1):    
+    #steps_per_epoch = 150000//global_batch_size
+    steps_per_epoch = 16
 
     for args in tqdm.tqdm(dataset.take(steps_per_epoch), total=steps_per_epoch):
         per_replica_losses = strategy.run(model.train_step, args=(args,))
