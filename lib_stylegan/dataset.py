@@ -23,7 +23,6 @@ def train_dataset(path, batch_size=8, im_size=256):
     return train_dataset_with_tf_dataset(im_dataset, batch_size)
 
 def train_dataset_with_tf_dataset(im_dataset, batch_size=8):
-    im_dataset = im_dataset.repeat()
     im_dataset = im_dataset.batch(batch_size)
     im_dataset = im_dataset.prefetch(1)
     return im_dataset
