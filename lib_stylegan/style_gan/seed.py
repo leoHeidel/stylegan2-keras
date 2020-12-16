@@ -4,8 +4,9 @@ import tensorflow.keras as keras
 import lib_stylegan
 
 
-def get_random_noise(batch_size=8):
-    random_noise = tf.random.normal(shape=(batch_size, 8))
+def get_random_noise(batch_size=8, float16=False):
+    dtype = tf.float16 if float16 else tf.float32
+    random_noise = tf.random.normal(shape=(batch_size, 8), dtype=dtype)
     return random_noise[:,:3], random_noise[:,3:6], random_noise[:,6], random_noise[:,7]
 
 

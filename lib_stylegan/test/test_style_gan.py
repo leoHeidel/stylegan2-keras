@@ -17,15 +17,18 @@ def test_style_gan_compiling():
     model.compile(run_eagerly=True)
 
 
-def get_small_params():
+def get_small_params(float16=False):
     model_param = {
        "im_size" : 64,
        "latent_size" : 64,
-       "channels" : 8
+       "channels" : 8,
+       "nchw" : False,
+#       "float16" : float16,
        }
 
     dataset_param = {
         "batch_size" : 3,
+#        "float16" : float16,
         "im_size" : model_param["im_size"],
     }
 
@@ -38,6 +41,22 @@ def test_small_style_gan_fit():
     model.compile()
     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
     model.fit(dataset.take(20))
+
+def test_small_style_gan_fit_nchw():
+    model_param, dataset_param = get_small_params()
+    model_param["nchw"] = True 
+    model = lib_stylegan.style_gan.StyleGan(**model_param)
+    model.compile()
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
+    model.fit(dataset.take(20))
+
+
+# def test_small_style_gan_fit_float16():
+#     model_param, dataset_param = get_small_params(float16=True)
+#     model = lib_stylegan.style_gan.StyleGan(**model_param)
+#     model.compile()
+#     dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
+#     model.fit(dataset.take(20))
         
 def test_small_style_gan_fit_eager():
     model_param, dataset_param = get_small_params()

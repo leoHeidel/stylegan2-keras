@@ -15,6 +15,7 @@ class Conv2DMod(Layer):
                  kernel_size,
                  strides=1,
                  padding='valid',
+                 nchw=False,
                  dilation_rate=1,
                  kernel_initializer='glorot_uniform',
                  kernel_regularizer=None,
@@ -34,11 +35,12 @@ class Conv2DMod(Layer):
         self.activity_regularizer = regularizers.get(activity_regularizer)
         self.kernel_constraint = constraints.get(kernel_constraint)
         self.demod = demod
+        self.nchw = nchw
         self.input_spec = [InputSpec(ndim = 4),
                             InputSpec(ndim = 2)]
 
     def build(self, input_shape):
-        channel_axis = -1
+        channel_axis = 1 if self.nchw else -1
         if input_shape[0][channel_axis] is None:
             raise ValueError('The channel dimension of the inputs '
                              'should be defined. Found `None`.')
@@ -46,7 +48,7 @@ class Conv2DMod(Layer):
         kernel_shape = self.kernel_size + (input_dim, self.filters)
 
         if input_shape[1][-1] != input_dim:
-            raise ValueError('The last dimension of modulation input should be equal to input dimension.')
+            raise ValueError(f'The last dimension of modulation input should be equal to input dimension. {input_shape[1][-1]} != {input_dim}')
 
         self.kernel = self.add_weight(shape=kernel_shape,
                                       initializer=self.kernel_initializer,
@@ -62,7 +64,10 @@ class Conv2DMod(Layer):
     def call(self, inputs):
 
         #To channels last
-        x = tf.transpose(inputs[0], [0, 3, 1, 2])
+        if not self.nchw:
+            x = tf.transpose(inputs[0], [0, 3, 1, 2])
+        else:
+            x = inputs[0]
 
         #Get weight and bias modulations
         #Make sure w's shape is compatible with self.kernel
@@ -90,12 +95,16 @@ class Conv2DMod(Layer):
 
         # Reshape/scale output.
         x = tf.reshape(x, [-1, self.filters, x.shape[2], x.shape[3]]) # Fused => reshape convolution groups back to minibatch.
-        x = tf.transpose(x, [0, 2, 3, 1])
+        
+        if not self.nchw:
+            x = tf.transpose(x, [0, 2, 3, 1])
 
         return x
 
     def compute_output_shape(self, input_shape):
         space = input_shape[0][1:-1]
+        if self.nchw:
+            space = [space[i] for i in (1,2,0)]
         new_space = []
         for i in range(len(space)):
             new_dim = conv_utils.conv_output_length(
@@ -106,7 +115,10 @@ class Conv2DMod(Layer):
                 dilation=self.dilation_rate[i])
             new_space.append(new_dim)
 
-        return (input_shape[0],) + tuple(new_space) + (self.filters,)
+        if self.nchw:
+            return (input_shape[0],) + (self.filters,) +  tuple(new_space) 
+        else:
+            return (input_shape[0],) + tuple(new_space) + (self.filters,)
 
     def get_config(self):
         config = {
@@ -120,7 +132,8 @@ class Conv2DMod(Layer):
             'activity_regularizer':
                 regularizers.serialize(self.activity_regularizer),
             'kernel_constraint': constraints.serialize(self.kernel_constraint),
-            'demod': self.demod
+            'demod': self.demod,
+            'nchw': self.nchw
         }
         base_config = super(Conv2DMod, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

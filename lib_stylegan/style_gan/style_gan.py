@@ -24,7 +24,8 @@ class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
                  channels=32, channels_mult_list=None, seed_type="standard",
                  nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None, 
-                 global_batch_size=None, mixed_proba=0.9, random_generator=None):
+                 global_batch_size=None, mixed_proba=0.9, random_generator=None,
+                 nchw=False):
         super(StyleGan, self).__init__()
         
         if nb_layer is None:
@@ -46,6 +47,8 @@ class StyleGan(keras.Model):
         self.seed_type = seed_type
         self.global_batch_size = global_batch_size
         self.random_generator = random_generator or tf.random.Generator.from_non_deterministic_state()
+        self.nchw = nchw
+        self.float16 = False
         #Models
         self.D = discriminator.make_discriminator(self)
         self.M = generator.make_style_map(self)
@@ -91,14 +94,18 @@ class StyleGan(keras.Model):
         with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
             w_1 = self.M(style1)
+            print(w_1)
             w_2 = self.M(style2)
             stacked = tf.stack([w_1,w_2], axis=1)
             w_space = tf.repeat(stacked,[style2_idx, self.n_layers-style2_idx],axis=1)
             #Generate images
             seed = self.S(w_space)
+            print(seed)
+            print(w_space)
+            print(noise)
             generated_images = self.G([seed, w_space, noise])
             
-            disc_loss = 0.
+            disc_loss = tf.zeros((), dtype=tf.float16 if self.float16 else tf.float32)
             
             #Discriminate, with gradient penalty 
             if perform_gp:
@@ -117,7 +124,7 @@ class StyleGan(keras.Model):
     
             #Hinge loss function
             gen_loss = fake_output
-            divergence = K.relu(1 + real_output) + K.relu(1 - fake_output)
+            divergence = tf.nn.relu(1 + real_output) + tf.nn.relu(1 - fake_output)
             disc_loss = disc_loss + divergence
 
             pl_lengths = self.pl_mean * tf.ones(tf.shape(images)[0])
@@ -181,15 +188,16 @@ class StyleGan(keras.Model):
         an input x is needed to give an indication of the batch size.
         generator should be specified if within distributed strategy.
         '''
+        dtype = tf.float16 if self.float16 else tf.float32
         batch_size = tf.shape(x)[0]
         noise = [] 
-        z_1 = self.random_generator.normal((batch_size, self.latent_size))
-        z_2 = self.random_generator.normal((batch_size, self.latent_size))
-        only_z2 = tf.cast(self.random_generator.uniform(()) > self.mixed_proba, dtype=tf.int32) # = 0 with proba mixed_prob
-        idx = self.random_generator.uniform((), maxval=self.n_layers, dtype=tf.int32) * only_z2
+        z_1 = self.random_generator.normal((batch_size, self.latent_size),dtype=dtype)
+        z_2 = self.random_generator.normal((batch_size, self.latent_size),dtype=dtype)
+        only_z2 = tf.cast(self.random_generator.uniform((), dtype=dtype) > self.mixed_proba, dtype=dtype) # = 0 with proba mixed_prob
+        idx = self.random_generator.uniform((), maxval=self.n_layers, dtype=dtype) * only_z2
 
         for i in range(self.n_layers):
             noise_size = self.im_size // (2**(self.n_layers-i-1))
-            noise.append(self.random_generator.uniform((batch_size,noise_size,noise_size,1)))
+            noise.append(self.random_generator.uniform((batch_size,noise_size,noise_size,1), dtype=dtype))
 
         return z_1, z_2, idx, noise
