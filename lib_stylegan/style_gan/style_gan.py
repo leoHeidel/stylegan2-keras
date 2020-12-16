@@ -94,15 +94,11 @@ class StyleGan(keras.Model):
         with tf.GradientTape(persistent=True) as grad_tape:
             #Get style information
             w_1 = self.M(style1)
-            print(w_1)
             w_2 = self.M(style2)
             stacked = tf.stack([w_1,w_2], axis=1)
             w_space = tf.repeat(stacked,[style2_idx, self.n_layers-style2_idx],axis=1)
             #Generate images
             seed = self.S(w_space)
-            print(seed)
-            print(w_space)
-            print(noise)
             generated_images = self.G([seed, w_space, noise])
             
             disc_loss = tf.zeros((), dtype=tf.float16 if self.float16 else tf.float32)
@@ -193,8 +189,8 @@ class StyleGan(keras.Model):
         noise = [] 
         z_1 = self.random_generator.normal((batch_size, self.latent_size),dtype=dtype)
         z_2 = self.random_generator.normal((batch_size, self.latent_size),dtype=dtype)
-        only_z2 = tf.cast(self.random_generator.uniform((), dtype=dtype) > self.mixed_proba, dtype=dtype) # = 0 with proba mixed_prob
-        idx = self.random_generator.uniform((), maxval=self.n_layers, dtype=dtype) * only_z2
+        only_z2 = tf.cast(self.random_generator.uniform((), dtype=dtype) > self.mixed_proba, dtype=tf.int32) # = 0 with proba mixed_prob
+        idx = self.random_generator.uniform((), maxval=self.n_layers, dtype=tf.int32) * only_z2
 
         for i in range(self.n_layers):
             noise_size = self.im_size // (2**(self.n_layers-i-1))
