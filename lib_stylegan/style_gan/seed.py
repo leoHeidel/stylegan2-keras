@@ -18,12 +18,19 @@ def make_seed_standard(model):
         x = keras.layers.Reshape([start_dim, start_dim, 4*model.channels])(x)
         return keras.models.Model(inputs = style_input, outputs = x)
 
+
 def make_seed_3d(model):
     start_dim = model.im_size // (2**(model.n_layers-1))
     style_input = keras.layers.Input([model.n_layers, model.latent_size])
     
-    r = get_random_noise(batch_size=tf.shape(style_input)[0])
-    random_view = lib_stylegan.lib_3d.layers.CameraStd()(r)
+    inputs_camera = [
+        keras.layers.Input([3]),
+        keras.layers.Input([3]),
+        keras.layers.Input(batch_shape=(None,)),
+        keras.layers.Input(batch_shape=(None,)),
+    ]
+    
+    random_view = lib_stylegan.lib_3d.layers.CameraStd()(inputs_camera)
     rays = lib_stylegan.lib_3d.layers.RayTracer()(random_view)
 
     hiddens = keras.layers.Dense(model.channels*4,activation="relu")(rays)
@@ -32,4 +39,8 @@ def make_seed_3d(model):
     
     feature_map = lib_stylegan.lib_3d.math_3d.to_feature_map(hiddens)
     
-    return keras.models.Model(inputs = style_input, outputs = feature_map)
+    raw_model = keras.models.Model(inputs = inputs_camera, outputs = feature_map)
+    r = get_random_noise(batch_size=tf.shape(style_input)[0])
+    feature_map_random = raw_model(r)
+    
+    return keras.models.Model(inputs = style_input, outputs = feature_map_random)
