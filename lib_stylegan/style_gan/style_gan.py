@@ -167,7 +167,7 @@ class StyleGan(keras.Model):
     def train_step(self, images):
         self.steps.assign(self.steps + 1)
         
-        apply_gradient_penalty = ((self.steps % 2) == 0) | (self.steps < 1000)
+        apply_gradient_penalty = ((self.steps % 2) == 0) | (self.steps < 10000)
         apply_path_penalty = self.steps % 16 == 0
         
         losses = self.tf_train_step(images, apply_gradient_penalty, apply_path_penalty)
