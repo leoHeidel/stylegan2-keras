@@ -23,8 +23,9 @@ def apply_EMA(trained_model, ema_model, beta):
 class StyleGan(keras.Model):
     def __init__(self, steps = 0, lr = 0.0001, im_size=256, latent_size = 512, 
                  channels=32, channels_mult_list=None, seed_type="standard",
-                 nb_style_mapper_layer=5, ema_beta=0.99, nb_layer=None, 
-                 global_batch_size=None, mixed_proba=0.9, random_generator=None):
+                 nb_style_mapper_layer=5, ema_beta=0.999, nb_layer=None, 
+                 global_batch_size=None, mixed_proba=0.9, random_generator=None,
+                 log_dir=None):
         super(StyleGan, self).__init__()
         
         if nb_layer is None:
@@ -56,16 +57,18 @@ class StyleGan(keras.Model):
             assert seed_type == "standard", f"Unrocognized seed_type: {seed_type}"
             self.S = seed.make_seed_standard(self)
 
-        self.S_opt = keras.optimizers.Adam(lr = lr/10, beta_1 = 0, beta_2 = 0.999)
+        self.S_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.M_opt = keras.optimizers.Adam(lr = lr/10, beta_1 = 0, beta_2 = 0.999)
         self.G_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
         self.D_opt = keras.optimizers.Adam(lr = lr, beta_1 = 0, beta_2 = 0.999)
 
         self.steps = tf.Variable(steps, dtype=tf.int32)       
         self.pl_mean = tf.Variable(0, dtype=tf.float32)
-        
-        logdir = "logs/train_data/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    
+
+        self.log_dir = log_dir
+        if self.log_dir:
+            self.init_tensorboard() 
+            
 
     def init_ema(self):
         self.ema_M = generator.make_style_map(self)
@@ -85,7 +88,7 @@ class StyleGan(keras.Model):
         apply_EMA(self.M,self.ema_M, self.ema_beta)
         apply_EMA(self.G,self.ema_G, self.ema_beta)
 
-    #@tf.function
+    @tf.function
     def tf_train_step(self, images, perform_gp, perform_pl):
         style1, style2, style2_idx, noise = self.get_noise(images)
         with tf.GradientTape(persistent=True) as grad_tape:
@@ -102,7 +105,7 @@ class StyleGan(keras.Model):
             
             #Discriminate, with gradient penalty 
             if perform_gp:
-                with tf.GradientTape() as penalty_tape:
+                with tf.GradientTape(watch_accessed_variables=False) as penalty_tape:
                     penalty_tape.watch(images)
                     real_output = self.D(images, training=True)
                 gradients = penalty_tape.gradient(real_output, images)
@@ -169,8 +172,7 @@ class StyleGan(keras.Model):
         
         losses = self.tf_train_step(images, apply_gradient_penalty, apply_path_penalty)
         pl_lengths = losses["pl_lengths"]
-        if self.pl_mean == 0:
-            self.pl_mean.assign(pl_lengths)
+        tf.cond(self.pl_mean == 0, lambda:self.pl_mean.assign(pl_lengths), lambda:pl_lengths)
         self.pl_mean.assign(0.99*self.pl_mean + 0.01*pl_lengths)
 
         return losses
@@ -193,3 +195,63 @@ class StyleGan(keras.Model):
             noise.append(self.random_generator.uniform((batch_size,noise_size,noise_size,1)))
 
         return z_1, z_2, idx, noise
+
+    def init_tensorboard(self):
+        pass
+
+    def tensorboard_step(self, images):
+        style1, style2, style2_idx, noise = self.get_noise(images)
+
+        w_1 = self.M(style1)
+        w_2 = self.M(style2)
+        stacked = tf.stack([w_1,w_2], axis=1)
+        w_space = tf.repeat(stacked,[style2_idx, self.n_layers-style2_idx],axis=1)
+        #Generate images
+        seed = self.S(w_space)
+        generated_images = self.G([seed, w_space, noise])
+                
+        #Gradient Penalty
+        with tf.GradientTape() as penalty_tape:
+            penalty_tape.watch(images)
+            real_output = self.D(images, training=True)
+        gradients = penalty_tape.gradient(real_output, images)
+        gradients2 = gradients*gradients
+        gradient_penalty = tf.reduce_sum(gradients2, axis=np.arange(1, len(gradients2.shape)))
+        gradient_penalty = tf.reduce_mean(gradient_penalty)
+
+        fake_output = self.D(generated_images, training=True)
+
+        #Hinge loss function
+        gen_loss = fake_output
+        divergence = K.relu(1 + real_output) + K.relu(1 - fake_output)
+        pl_lengths = self.pl_mean * tf.ones(tf.shape(images)[0])
+
+        ##PL
+        #Slightly adjust W space
+        w_space_2 = []
+        for i in range(self.n_layers):
+            w_slice = w_space[:,i]
+            std = 0.1 / (K.std(w_slice, axis = 0, keepdims = True) + 1e-8)
+            w_space_2.append(w_slice + K.random_normal(tf.shape(w_slice)) / (std + 1e-8))
+        w_space_2 = tf.stack(w_space_2, axis=1)
+        #Generate from slightly adjusted W space
+        pl_images = self.G([seed, w_space_2,noise], training=True)
+
+        #Get distance after adjustment (path length)
+        diff = pl_images - generated_images
+        pl_lengths = tf.reduce_mean(diff*diff, axis = [1, 2, 3])
+        
+
+        diff = pl_lengths - self.pl_mean
+        pl_loss = tf.reduce_mean(diff*diff)
+        gen_loss = tf.nn.compute_average_loss(gen_loss, global_batch_size=self.global_batch_size)
+
+
+        metric = {
+            "gen_loss":gen_loss,
+            "divergence":tf.reduce_mean(divergence),
+            "pl_length":tf.reduce_mean(pl_lengths),
+            "pl_loss":pl_loss,
+            "pl_length_ema": self.pl_mean,
+            "gradient_penalty" : gradient_penalty,
+        }
