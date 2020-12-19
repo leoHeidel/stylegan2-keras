@@ -119,8 +119,8 @@ class StyleGan(keras.Model):
             fake_output = self.D(generated_images, training=True)
     
             #Hinge loss function
-            gen_loss = fake_output
-            divergence = K.relu(1 + real_output) + K.relu(1 - fake_output)
+            gen_loss = tf.nn.softplus(-fake_output)
+            divergence = tf.nn.softplus(-real_output) + tf.nn.softplus(fake_output)
             disc_loss = disc_loss + divergence
 
             pl_lengths = self.pl_mean * tf.ones(tf.shape(images)[0])
