@@ -92,4 +92,11 @@ def test_tensorboard():
             model.train_step(args)
             model.tensorboard_step(args)
 
-
+def test_log():
+    lib_stylegan.style_gan.logging.start_logging()
+    model_param, dataset_param = get_small_params()
+    model = lib_stylegan.style_gan.StyleGan(**model_param)
+    model.compile(run_eagerly=True)
+    dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
+    model.fit(dataset.repeat().take(1))   
+    logs = lib_stylegan.style_gan.logging.get_logs()

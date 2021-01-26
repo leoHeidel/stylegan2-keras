@@ -16,7 +16,7 @@ def make_seed_standard(model):
         x = keras.layers.Dense(start_dim*start_dim*4*model.channels, activation = 'relu', 
                              kernel_initializer = 'random_normal')(x)
         x = keras.layers.Reshape([start_dim, start_dim, 4*model.channels])(x)
-        return keras.models.Model(inputs = style_input, outputs = x)
+        return keras.models.Model(inputs = style_input, outputs = x, name="seed_network")
 
 
 def make_seed_3d(model):
@@ -43,4 +43,4 @@ def make_seed_3d(model):
     r = get_random_noise(batch_size=tf.shape(style_input)[0])
     feature_map_random = raw_model(r)
     
-    return keras.models.Model(inputs = style_input, outputs = feature_map_random)
+    return keras.models.Model(inputs = style_input, outputs = feature_map_random, name="3d_seed_network")
