@@ -11,10 +11,11 @@ def get_random_noise(batch_size=8):
 
 def make_seed_standard(model):
         start_dim = model.im_size // (2**(model.n_layers-1))
-        style_input = inp_style = keras.layers.Input([model.n_layers, model.latent_size])
-        x = tf.stop_gradient(style_input)[:,0,:1] * 0 + 1
-        x = keras.layers.Dense(start_dim*start_dim*4*model.channels, activation = 'relu', 
-                             kernel_initializer = 'random_normal')(x)
+        style_input = keras.layers.Input([model.n_layers, model.latent_size])
+        x = tf.stop_gradient(style_input[:,0,:1] * 0) + 1
+        x = keras.layers.Dense(start_dim*start_dim*4*model.channels, 
+                             kernel_initializer=keras.initializers.RandomNormal(0., 1.),
+                             use_bias=False)(x)
         x = keras.layers.Reshape([start_dim, start_dim, 4*model.channels])(x)
         return keras.models.Model(inputs = style_input, outputs = x, name="seed_network")
 

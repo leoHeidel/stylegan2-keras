@@ -1,29 +1,34 @@
+import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 
 import lib_stylegan
 from lib_stylegan.style_gan.logging.layers import SPP_layer
 
-def to_rgb(inp, style, im_size):
+def to_rgb(inp, style, im_size, name="to_rgb"):
     current_size = inp.shape[2]
-    x = lib_stylegan.style_gan.conv_mod.Conv2DMod(3, 1, kernel_initializer = keras.initializers.VarianceScaling(200/current_size), 
+    x = lib_stylegan.style_gan.conv_mod.Conv2DMod(3, 1, kernel_initializer  = 'he_uniform', 
                               demod = False)([inp, style])
     factor = im_size // current_size
+    x = SPP_layer(name=f"{name}_rgb_mod")(x)
     x = keras.layers.UpSampling2D(size=(factor, factor), interpolation='bilinear')(x)
     return x
 
-def g_block(x, input_style, input_noise, nb_filters, im_size, name="g_block", upsampling = True):
+def g_block(x, input_style, input_noise, nb_filters, im_size, name="g_block", upsampling = True, alpha = 0.2):
+    coef_leaky_relu = np.sqrt(1/(0.5+alpha**2))
     input_filters = x.shape[-1]
     if upsampling:
         x = keras.layers.UpSampling2D(interpolation='bilinear')(x)
     
+    x = SPP_layer(name=f"{name}_start")(x)
     style = keras.layers.Dense(input_filters, kernel_initializer = 'he_uniform')(input_style)
     d = keras.layers.Dense(nb_filters, kernel_initializer='zeros')(input_noise)
     x = lib_stylegan.style_gan.conv_mod.Conv2DMod(filters=nb_filters, kernel_size = 3, padding = 'same', kernel_initializer = 'he_uniform')([x, style])
     x = SPP_layer(name=f"{name}_mod_0")(x)
     x = keras.layers.add([x, d])
     x = SPP_layer(name=f"{name}_noised_0")(x)
-    x = keras.layers.LeakyReLU(0.2)(x)
+    x = keras.layers.LeakyReLU(0.2)(x) * coef_leaky_relu
+    x = SPP_layer(name=f"{name}_mid_relu")(x)
 
     style = keras.layers.Dense(nb_filters, kernel_initializer = 'he_uniform')(input_style)
     d = keras.layers.Dense(nb_filters, kernel_initializer = 'zeros')(input_noise)
@@ -31,11 +36,12 @@ def g_block(x, input_style, input_noise, nb_filters, im_size, name="g_block", up
     x = SPP_layer(name=f"{name}_mod_1")(x)
     x = keras.layers.add([x, d])
     x = SPP_layer(name=f"{name}_noised_1")(x)
-    x = keras.layers.LeakyReLU(0.2)(x)
+    x = keras.layers.LeakyReLU(0.2)(x) * coef_leaky_relu
+    x = SPP_layer(name=f"{name}_finish")(x)
 
     current_size = x.shape[2]
     rgb_style = keras.layers.Dense(nb_filters, kernel_initializer = keras.initializers.VarianceScaling(200/current_size))(input_style)
-    rgb = to_rgb(x, rgb_style, im_size)
+    rgb = to_rgb(x, rgb_style, im_size, name=name)
     rgb = SPP_layer(name=f"{name}_rgb")(rgb)
     return x, rgb
 

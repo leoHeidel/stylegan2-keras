@@ -199,7 +199,7 @@ class StyleGan(keras.Model):
     def init_tensorboard(self):
         pass
 
-    def tensorboard_step(self, images):
+    def test_step(self, images):
         style1, style2, style2_idx, noise = self.get_noise(images)
 
         w_1 = self.M(style1)

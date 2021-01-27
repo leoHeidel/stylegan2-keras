@@ -90,7 +90,7 @@ def test_tensorboard():
         dataset = lib_stylegan.dataset.train_dataset(test_datset_path, **dataset_param)
         for args in dataset.repeat().take(18):
             model.train_step(args)
-            model.tensorboard_step(args)
+            model.test_step(args)
 
 def test_log():
     lib_stylegan.style_gan.logging.start_logging()
