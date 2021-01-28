@@ -14,4 +14,4 @@ See the [colab example](https://colab.research.google.com/drive/1mnaWwrPHHmJ3aJ3
 ## Acknowledgements 
 
 The code was inspired by the following repositories:
-- https://github.com/manicman1999/StyleGAN2-Tensorflow-2.0
+- https://github.com/manicman1999/StyleGAN2-Tensorflow-2.0, mainly for for the conv_mod layer.
