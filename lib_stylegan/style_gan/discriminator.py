@@ -5,26 +5,31 @@ import tensorflow.keras as keras
 import lib_stylegan
 from lib_stylegan.style_gan.logging.layers import SPP_layer
 
-def d_block(inp, fil, name="d_block", p = True):
-    res = keras.layers.Conv2D(fil, 1, kernel_initializer = 'he_uniform')(inp)
+def d_block(inp, fil, name="d_block", p = True, alpha=0.2):
+    initializer = keras.initializers.VarianceScaling(distribution="uniform")
+    coef_leaky_relu = np.sqrt(1/(0.5+alpha**2))
+    
+    inp = SPP_layer(name=f"{name}_inp")(inp)
+    res = keras.layers.Conv2D(fil, 1, kernel_initializer = initializer)(inp)
+    res = SPP_layer(name=f"{name}_inp_conv")(res)
 
     out = keras.layers.Conv2D(filters = fil, kernel_size = 3, padding = 'same', 
-                              kernel_initializer = 'he_uniform',
+                              kernel_initializer = initializer,
                               name=f"{name}_mod_0")(inp)
     out = SPP_layer(name=f"{name}_0")(out)
-    out = keras.layers.LeakyReLU(0.2)(out)
+    out = keras.layers.LeakyReLU(alpha)(out)*coef_leaky_relu
     out = keras.layers.Conv2D(filters = fil, kernel_size = 3, padding = 'same', 
-                              kernel_initializer = 'he_uniform',
+                              kernel_initializer = initializer,
                               name=f"{name}_mod_1")(out)
     out = SPP_layer(name=f"{name}_1")(out)
-    out = keras.layers.LeakyReLU(0.2)(out)
+    out = keras.layers.LeakyReLU(alpha)(out)*coef_leaky_relu
 
     out = keras.layers.add([res, out])
     out = SPP_layer(name=f"{name}_out")(out)
 
     if p:
         out = keras.layers.AveragePooling2D()(out)
-
+    out = SPP_layer(name=f"{name}_pooled")(out)
     return out
     
 def make_discriminator(model):

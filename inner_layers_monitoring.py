@@ -39,9 +39,12 @@ for i in range(model.n_layers-1):
     d_path_mean.append(f"d_block_{i}_0_mean")
     d_path_mean.append(f"d_block_{i}_1_mean")
     d_path_mean.append(f"d_block_{i}_out_mean")
+    d_path_std.append(f"d_block_{i}_inp_std")
+    d_path_std.append(f"d_block_{i}_inp_conv_std")
     d_path_std.append(f"d_block_{i}_0_std")
     d_path_std.append(f"d_block_{i}_1_std")
     d_path_std.append(f"d_block_{i}_out_std")    
+    d_path_std.append(f"d_block_{i}_pooled_std")    
 
 g_path_mean = ["generator_seed_mean"]
 g_path_std = ["generator_seed_std"]
@@ -65,12 +68,9 @@ for i in range(model.n_layers):
     rgb_contrib_std.append(f"g_block_{i}_rgb_std")
     
 logs = pd.Series(logs)
-print("rgb_contrib_mean")
-print(logs[rgb_contrib_mean])
-print("rgb_contrib_std")
-print(logs[rgb_contrib_std])
-print("g_path_std")
-print(logs[g_path_std])
-
-print(model.S.layers[5].weights[0].numpy().std())
-
+#print("rgb_contrib_mean")
+#print("rgb_contrib_std")
+#print(logs[rgb_contrib_mean])
+#print(logs[rgb_contrib_std])
+print("d_path_std")
+print(logs[d_path_std])
